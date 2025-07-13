@@ -10,4 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(include)
 
 # 添加可执行文件
-add_executable(can_monitor src/main.cpp)
+# 修改CMakeLists.txt
+add_executable(can_monitor 
+    src/main.cpp
+    src/MockCanDataSource.cpp  # 添加这一行
+)
