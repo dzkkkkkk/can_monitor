@@ -1,0 +1,23 @@
+
+EOF
+# 编译产物
+build/
+bin/
+*.o
+
+# IDE配置文件
+.vscode/
+.idea/
+*.user
+
+# 日志文件
+*.log
+
+# 系统文件
+.DS_Store
+EOF
+q
+q<<
+<< EOF
+EOF
+cat > .gitignore << EOF
