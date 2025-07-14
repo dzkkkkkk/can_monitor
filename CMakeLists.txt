@@ -13,6 +13,8 @@ find_package(Threads REQUIRED)
 
 # 添加可执行文件
 add_executable(can_monitor
+    src/ProcessingPipeline.cpp
+    src/SignalDecoder.cpp
     src/main.cpp
     src/MockCanDataSource.cpp
 )
