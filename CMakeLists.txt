@@ -13,11 +13,18 @@ find_package(Threads REQUIRED)
 
 # 添加可执行文件
 add_executable(can_monitor
-    src/ProcessingPipeline.cpp
-    src/SignalDecoder.cpp
     src/main.cpp
     src/MockCanDataSource.cpp
+    src/SignalDecoder.cpp
+    src/ProcessingPipeline.cpp
 )
 
 # 链接线程库
 target_link_libraries(can_monitor PRIVATE Threads::Threads)
+
+# 添加spdlog日志库
+add_subdirectory(third_party/spdlog)
+target_link_libraries(can_monitor PRIVATE spdlog::spdlog_header_only)
+
+# 设置日志宏
+target_compile_definitions(can_monitor PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
