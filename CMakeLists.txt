@@ -1,4 +1,3 @@
-# CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
 project(CanMonitor LANGUAGES CXX)
 
@@ -9,9 +8,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 包含头文件目录
 include_directories(include)
 
+# 查找Threads包
+find_package(Threads REQUIRED)
+
 # 添加可执行文件
-# 修改CMakeLists.txt
-add_executable(can_monitor 
+add_executable(can_monitor
     src/main.cpp
-    src/MockCanDataSource.cpp  # 添加这一行
+    src/MockCanDataSource.cpp
 )
+
+# 链接线程库
+target_link_libraries(can_monitor PRIVATE Threads::Threads)
