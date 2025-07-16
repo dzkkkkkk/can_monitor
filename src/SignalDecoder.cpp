@@ -16,7 +16,7 @@ DecodedSignal SignalDecoder::decodeSpeed(const CanFrame& frame) const {
     if (frame.id == SPEED_ID && frame.dlc >= 2) {
         // 大端序解析：第一个字节是高位，第二个字节是低位
         uint16_t raw = (static_cast<uint16_t>(frame.data[0]) << 8) | frame.data[1];
-        signal.physicalValue = raw * 0.1;  // 转换为km/h
+        signal.physicalValue = raw * 0.001;  // 转换为km/h
     } else {
         signal.physicalValue = NAN;  // 使用NaN表示无效值
     }

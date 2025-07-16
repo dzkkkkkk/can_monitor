@@ -19,6 +19,7 @@ int main() {
     // 创建并配置数据源
     auto dataSource = std::make_unique<MockCanDataSource>();
     dataSource->setFrameRate(20); // 20帧/秒
+    dataSource->setIdRange(0x100, 0x101); //范围
     
     // 创建信号解析器
     auto decoder = std::make_unique<SignalDecoder>();
