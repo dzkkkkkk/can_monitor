@@ -5,6 +5,7 @@
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <array>
 #include <queue>
 #include <condition_variable>
 #include <atomic>
@@ -25,7 +26,11 @@ private:
     std::thread consumerThread_;
     std::mutex queueMutex_;
     std::condition_variable dataCondition_;
-    std::queue<CanFrame> frameQueue_;
+    
+    // 双缓冲队列
+    std::array<std::queue<CanFrame>, 2> frameQueue_;
+    std::atomic<int> currentQueue_{0};  // 当前队列索引
+
     std::atomic<bool> stopRequested_{false};
     
     // 线程函数

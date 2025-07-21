@@ -1,7 +1,7 @@
 #include "ProcessingPipeline.hpp"
 #include <iomanip>
 #include "spdlog/spdlog.h"
-#include "spdlog/sinks/stdout_color_sinks.h"  // 添加这个头文件
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 ProcessingPipeline::ProcessingPipeline(std::unique_ptr<MockCanDataSource> dataSource,
                                        std::unique_ptr<SignalDecoder> decoder)
@@ -9,6 +9,11 @@ ProcessingPipeline::ProcessingPipeline(std::unique_ptr<MockCanDataSource> dataSo
     // 初始化日志
     logger_ = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("pipeline");
     logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%^%l%$] %v");
+
+    // 初始化双缓冲队列
+    currentQueue_ = 0;
+    frameQueue_[0] = std::queue<CanFrame>();
+    frameQueue_[1] = std::queue<CanFrame>();
 }
 
 ProcessingPipeline::~ProcessingPipeline() {
@@ -57,7 +62,8 @@ void ProcessingPipeline::producerThreadFunc(int numFrames) {
         
         {
             std::lock_guard<std::mutex> lock(queueMutex_);
-            frameQueue_.push(frame);
+            // 将数据帧推入当前队列
+            frameQueue_[currentQueue_].push(frame);
             framesProcessed_++;
         }
         
@@ -81,14 +87,15 @@ void ProcessingPipeline::consumerThreadFunc() {
         {
             std::unique_lock<std::mutex> lock(queueMutex_);
             dataCondition_.wait(lock, [this] {
-                return !frameQueue_.empty() || stopRequested_;
+                // 等待当前队列非空或停止信号
+                return !frameQueue_[currentQueue_].empty() || stopRequested_;
             });
             
-            if (stopRequested_ && frameQueue_.empty()) break;
+            if (stopRequested_ && frameQueue_[currentQueue_].empty()) break;
             
-            if (!frameQueue_.empty()) {
-                frame = frameQueue_.front();
-                frameQueue_.pop();
+            if (!frameQueue_[currentQueue_].empty()) {
+                frame = frameQueue_[currentQueue_].front();
+                frameQueue_[currentQueue_].pop();
             } else {
                 continue;
             }
@@ -96,8 +103,12 @@ void ProcessingPipeline::consumerThreadFunc() {
         
         processFrame(frame);
         framesConsumed_++;
+        
+        // 切换到另一个队列
+        currentQueue_ = 1 - currentQueue_;
+        
         logger_->debug("消费帧: ID={:03X} (队列大小: {})", 
-                      frame.id, frameQueue_.size());
+                      frame.id, frameQueue_[currentQueue_].size());
     }
     
     logger_->info("消费者线程完成");
