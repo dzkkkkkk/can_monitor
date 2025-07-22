@@ -4,7 +4,6 @@
 #include <vector>
 #include <memory>
 #include <thread>
-#include <mutex>
 #include <array>
 #include <queue>
 #include <condition_variable>
@@ -17,14 +16,14 @@ public:
                        std::unique_ptr<SignalDecoder> decoder);
     ~ProcessingPipeline();
     
-    void stop();  // 添加停止函数声明
+    void stop();
     void run(int numFrames);
     
 private:
     // 多线程组件
     std::thread producerThread_;
     std::thread consumerThread_;
-    std::mutex queueMutex_;
+    std::array<std::mutex, 2> queueMutex_;  // 为每个队列分别使用一个互斥量
     std::condition_variable dataCondition_;
     
     // 双缓冲队列

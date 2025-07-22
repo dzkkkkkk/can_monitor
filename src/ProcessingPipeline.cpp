@@ -1,19 +1,15 @@
 #include "ProcessingPipeline.hpp"
 #include <iomanip>
+#include <chrono>
 #include "spdlog/spdlog.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/stdout_color_sinks.h"  // 添加这个头文件
 
 ProcessingPipeline::ProcessingPipeline(std::unique_ptr<MockCanDataSource> dataSource,
                                        std::unique_ptr<SignalDecoder> decoder)
     : dataSource_(std::move(dataSource)), decoder_(std::move(decoder)) {
     // 初始化日志
-    logger_ = spdlog::create<spdlog::sinks::stdout_color_sink_mt>("pipeline");
+    logger_ = spdlog::stdout_color_mt("pipeline");
     logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%^%l%$] %v");
-
-    // 初始化双缓冲队列
-    currentQueue_ = 0;
-    frameQueue_[0] = std::queue<CanFrame>();
-    frameQueue_[1] = std::queue<CanFrame>();
 }
 
 ProcessingPipeline::~ProcessingPipeline() {
@@ -61,7 +57,7 @@ void ProcessingPipeline::producerThreadFunc(int numFrames) {
         CanFrame frame = dataSource_->getNextFrame();
         
         {
-            std::lock_guard<std::mutex> lock(queueMutex_);
+            std::lock_guard<std::mutex> lock(queueMutex_[currentQueue_]);
             // 将数据帧推入当前队列
             frameQueue_[currentQueue_].push(frame);
             framesProcessed_++;
@@ -85,7 +81,7 @@ void ProcessingPipeline::consumerThreadFunc() {
         CanFrame frame;
         
         {
-            std::unique_lock<std::mutex> lock(queueMutex_);
+            std::unique_lock<std::mutex> lock(queueMutex_[currentQueue_]);
             dataCondition_.wait(lock, [this] {
                 // 等待当前队列非空或停止信号
                 return !frameQueue_[currentQueue_].empty() || stopRequested_;

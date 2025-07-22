@@ -33,7 +33,7 @@ int main() {
     // 运行管道处理100帧
     pipeline->run(100);
     
-    spdlog::info("双缓冲队列实现");
+    spdlog::info("双缓冲队列修复");
     spdlog::info("程序退出");
     return 0;
 }
