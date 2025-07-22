@@ -5,9 +5,9 @@
 #include <memory>
 #include <thread>
 #include <array>
-#include <queue>
-#include <condition_variable>
 #include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include "spdlog/logger.h"
 
 class ProcessingPipeline {
@@ -23,12 +23,14 @@ private:
     // 多线程组件
     std::thread producerThread_;
     std::thread consumerThread_;
-    std::array<std::mutex, 2> queueMutex_;  // 为每个队列分别使用一个互斥量
+    std::mutex swapMutex_;                // 保护缓冲区交换操作
+    std::array<std::mutex, 2> bufferMutex_; // 保护各个缓冲区
     std::condition_variable dataCondition_;
+    std::condition_variable consumeCondition_; // 可选的生产者等待
     
     // 双缓冲队列
-    std::array<std::queue<CanFrame>, 2> frameQueue_;
-    std::atomic<int> currentQueue_{0};  // 当前队列索引
+    std::array<std::vector<CanFrame>, 2> frameBuffers_;
+    std::atomic<int> readyBufferIndex_{-1}; // 就绪缓冲区索引（-1表示无就绪缓冲区）
 
     std::atomic<bool> stopRequested_{false};
     

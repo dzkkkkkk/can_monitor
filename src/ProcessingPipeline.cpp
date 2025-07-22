@@ -52,59 +52,95 @@ void ProcessingPipeline::run(int numFrames) {
 
 void ProcessingPipeline::producerThreadFunc(int numFrames) {
     logger_->info("生产者线程启动");
+    constexpr int BUFFER_SIZE = 32; // 缓冲区大小（可根据需求调整）
     
+    int currentBuffer = 0; // 生产者使用的当前缓冲区索引
+
     for (int i = 0; i < numFrames && !stopRequested_; ++i) {
         CanFrame frame = dataSource_->getNextFrame();
         
+        // 获取当前缓冲区的独占访问
         {
-            std::lock_guard<std::mutex> lock(queueMutex_[currentQueue_]);
-            // 将数据帧推入当前队列
-            frameQueue_[currentQueue_].push(frame);
-            framesProcessed_++;
+            std::lock_guard<std::mutex> lock(bufferMutex_[currentBuffer]);
+            frameBuffers_[currentBuffer].push_back(frame);
         }
         
-        dataCondition_.notify_one(); // 通知消费者有新数据
-        
-        // 切换到另一个队列
-        currentQueue_ = 1 - currentQueue_;
-        
+        framesProcessed_++;
         logger_->debug("生产帧: ID={:03X} ({}/{})", 
                       frame.id, i+1, numFrames);
+        
+        // 检查是否达到缓冲区大小或最后一帧
+        if (frameBuffers_[currentBuffer].size() >= BUFFER_SIZE || i == numFrames - 1) {
+            // 锁定交换操作
+            std::unique_lock<std::mutex> swapLock(swapMutex_);
+            
+            // 交换缓冲区：将填充好的缓冲区移交给消费者
+            readyBufferIndex_.store(currentBuffer);
+            logger_->info("缓冲区 {} 已准备就绪 ({}帧)", 
+                         currentBuffer, frameBuffers_[currentBuffer].size());
+            
+            // 通知消费者有新数据
+            dataCondition_.notify_one();
+            
+            // 等待消费者处理完成（可选，根据需求决定）
+            // consumeCondition_.wait(swapLock, [&]{
+            //     return frameBuffers_[currentBuffer].empty() || stopRequested_;
+            // });
+            
+            // 切换到另一个缓冲区继续填充
+            currentBuffer = 1 - currentBuffer;
+        }
     }
     
-    logger_->info("生产者线程完成");
+    // 最终通知
     stopRequested_ = true;
     dataCondition_.notify_all();
+    logger_->info("生产者线程完成");
 }
 
 void ProcessingPipeline::consumerThreadFunc() {
     logger_->info("消费者线程启动");
     
     while (!stopRequested_) {
-        CanFrame frame;
+        int readyIndex = -1;
+        std::vector<CanFrame> framesToProcess;
         
         {
-            std::unique_lock<std::mutex> lock(queueMutex_[currentQueue_]);
-            dataCondition_.wait(lock, [this] {
-                // 等待当前队列非空或停止信号
-                return !frameQueue_[currentQueue_].empty() || stopRequested_;
+            std::unique_lock<std::mutex> swapLock(swapMutex_);
+            
+            // 等待就绪缓冲区或停止信号
+            dataCondition_.wait(swapLock, [this] {
+                return readyBufferIndex_ != -1 || stopRequested_;
             });
             
-            if (stopRequested_ && frameQueue_[currentQueue_].empty()) break;
+            if (stopRequested_) break;
             
-            if (!frameQueue_[currentQueue_].empty()) {
-                frame = frameQueue_[currentQueue_].front();
-                frameQueue_[currentQueue_].pop();
-            } else {
-                continue;
+            // 获取就绪缓冲区索引
+            readyIndex = readyBufferIndex_.load();
+            readyBufferIndex_.store(-1);  // 重置就绪状态
+            
+            // 转移缓冲区内容
+            {
+                std::lock_guard<std::mutex> bufLock(bufferMutex_[readyIndex]);
+                framesToProcess = std::move(frameBuffers_[readyIndex]);
+                frameBuffers_[readyIndex].clear();
             }
+            
+            logger_->info("开始处理缓冲区 {} ({}帧)", 
+                         readyIndex, framesToProcess.size());
         }
         
-        processFrame(frame);
-        framesConsumed_++;
+        // 处理所有帧
+        for (auto& frame : framesToProcess) {
+            processFrame(frame);
+            framesConsumed_++;
+        }
         
-        logger_->debug("消费帧: ID={:03X} (队列大小: {})", 
-                      frame.id, frameQueue_[currentQueue_].size());
+        logger_->info("完成处理缓冲区 {} (已处理{}帧)", 
+                     readyIndex, framesToProcess.size());
+        
+        // 通知生产者缓冲区已清空（如果启用了等待）
+        // consumeCondition_.notify_one();
     }
     
     logger_->info("消费者线程完成");
