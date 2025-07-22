@@ -2,7 +2,7 @@
 #include <iomanip>
 #include <chrono>
 #include "spdlog/spdlog.h"
-#include "spdlog/sinks/stdout_color_sinks.h"  // 添加这个头文件
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 ProcessingPipeline::ProcessingPipeline(std::unique_ptr<MockCanDataSource> dataSource,
                                        std::unique_ptr<SignalDecoder> decoder)
@@ -63,7 +63,10 @@ void ProcessingPipeline::producerThreadFunc(int numFrames) {
             framesProcessed_++;
         }
         
-        dataCondition_.notify_one();
+        dataCondition_.notify_one(); // 通知消费者有新数据
+        
+        // 切换到另一个队列
+        currentQueue_ = 1 - currentQueue_;
         
         logger_->debug("生产帧: ID={:03X} ({}/{})", 
                       frame.id, i+1, numFrames);
@@ -99,9 +102,6 @@ void ProcessingPipeline::consumerThreadFunc() {
         
         processFrame(frame);
         framesConsumed_++;
-        
-        // 切换到另一个队列
-        currentQueue_ = 1 - currentQueue_;
         
         logger_->debug("消费帧: ID={:03X} (队列大小: {})", 
                       frame.id, frameQueue_[currentQueue_].size());
