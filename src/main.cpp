@@ -18,7 +18,7 @@ int main() {
     
     // 创建并配置数据源
     auto dataSource = std::make_unique<MockCanDataSource>();
-    dataSource->setFrameRate(20); // 20帧/秒
+    dataSource->setFrameRate(100); // 20帧/秒
     dataSource->setIdRange(0x100, 0x101); //范围
     
     // 创建信号解析器
@@ -31,7 +31,7 @@ int main() {
     );
     
     // 运行管道处理100帧
-    pipeline->run(100);
+    pipeline->run(500);
     
     spdlog::info("双缓冲队列修复");
     spdlog::info("程序退出");
