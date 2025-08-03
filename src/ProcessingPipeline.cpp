@@ -101,7 +101,7 @@ void ProcessingPipeline::producerThreadFunc(int numFrames) {
 void ProcessingPipeline::consumerThreadFunc() {
     logger_->info("消费者线程启动");
     
-    while (!stopRequested_) {
+    while (!(stopRequested_==true&&readyBufferIndex_==-1)) { //只有当停止符为真而且当前缓冲区已经处理完
         int readyIndex = -1;
         std::vector<CanFrame> framesToProcess;
         
@@ -113,11 +113,11 @@ void ProcessingPipeline::consumerThreadFunc() {
                 return readyBufferIndex_ != -1 || stopRequested_;
             });
             
-            if (stopRequested_) break;
+            if (stopRequested_&&readyBufferIndex_==-1) break;//添加了readyBufferIndex_防止最后一个缓冲区没来得及消费就结束了
             
             // 获取就绪缓冲区索引
             readyIndex = readyBufferIndex_.load();
-            readyBufferIndex_.store(-1);  // 重置就绪状态
+            
             
             // 转移缓冲区内容
             {
@@ -139,6 +139,7 @@ void ProcessingPipeline::consumerThreadFunc() {
         logger_->info("完成处理缓冲区 {} (已处理{}帧)", 
                      readyIndex, framesToProcess.size());
         
+        readyBufferIndex_.store(-1);  // 重置就绪状态,这个往后放
         // 通知生产者缓冲区已清空（如果启用了等待）
         // consumeCondition_.notify_one();
     }
