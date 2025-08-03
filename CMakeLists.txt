@@ -19,6 +19,10 @@ add_executable(can_monitor
     src/ProcessingPipeline.cpp
 )
 
+#编译信息
+set(CMAKE_BUILD_TYPE Debug)
+target_compile_options(can_monitor PRIVATE -g -O0)
+
 # 链接线程库
 target_link_libraries(can_monitor PRIVATE Threads::Threads)
 
