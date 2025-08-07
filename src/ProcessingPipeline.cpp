@@ -117,7 +117,7 @@ void ProcessingPipeline::consumerThreadFunc() {
             
             // 获取就绪缓冲区索引
             readyIndex = readyBufferIndex_.load();
-            
+            readyBufferIndex_.store(-1);  // 重置就绪状态
             
             // 转移缓冲区内容
             {
@@ -139,7 +139,7 @@ void ProcessingPipeline::consumerThreadFunc() {
         logger_->info("完成处理缓冲区 {} (已处理{}帧)", 
                      readyIndex, framesToProcess.size());
         
-        readyBufferIndex_.store(-1);  // 重置就绪状态,这个往后放
+        
         // 通知生产者缓冲区已清空（如果启用了等待）
         // consumeCondition_.notify_one();
     }
