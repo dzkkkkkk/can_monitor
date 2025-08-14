@@ -7,13 +7,17 @@
 ProcessingPipeline::ProcessingPipeline(std::unique_ptr<MockCanDataSource> dataSource,
                                        std::unique_ptr<SignalDecoder> decoder)
     : dataSource_(std::move(dataSource)), decoder_(std::move(decoder)) {
-    // 初始化日志
-    logger_ = spdlog::stdout_color_mt("pipeline");
-    logger_->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%n] [%^%l%$] %v");
+    // 获取全局异步日志器（关键修改）
+    logger_ = spdlog::get("async_logger");
+    if (!logger_) {
+        logger_ = spdlog::default_logger(); // 后备方案
+    }
+    // 移除格式设置（已在main中统一设置）
 }
 
 ProcessingPipeline::~ProcessingPipeline() {
     stop();
+    if(logger_) logger_->flush();  // 确保所有日志写入
 }
 
 void ProcessingPipeline::stop() {

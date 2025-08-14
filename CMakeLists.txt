@@ -22,9 +22,12 @@ add_executable(can_monitor
 # 链接线程库
 target_link_libraries(can_monitor PRIVATE Threads::Threads)
 
-# 添加spdlog日志库
+# 添加spdlog日志库 异步日志依赖添加
 add_subdirectory(third_party/spdlog)
-target_link_libraries(can_monitor PRIVATE spdlog::spdlog_header_only)
+target_link_libraries(can_monitor PRIVATE
+    Threads::Threads
+    spdlog::spdlog_header_only
+)
 
 # 设置日志宏
 target_compile_definitions(can_monitor PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_DEBUG)
